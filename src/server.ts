@@ -1,5 +1,5 @@
 import express from 'express';
-import Payment from './picpay/Payment';
+import { Picpay } from './picpay';
 
 require('dotenv').config();
 
@@ -7,7 +7,7 @@ const server = express();
 server.use(express.json());
 
 // const { TOKEN, SELLER_TOKEN } = process.env;
-const picpayPayment = new Payment(process.env.TOKEN as string, process.env.SELLER_TOKEN as string);
+const picpayPayment = new Picpay(process.env.TOKEN as string, process.env.SELLER_TOKEN as string);
 
 server.post('/payment', async (request, response) => {
    const buyer = {
@@ -27,7 +27,7 @@ server.post('/payment', async (request, response) => {
       buyer,
    };
 
-   const { status, data } = await picpayPayment.post('/payment', payload);
+   const { status, data } = await picpayPayment.httpClient.send(payload);
 
    response.json(data);
 });

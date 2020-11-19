@@ -1,59 +1,109 @@
-import axios, { AxiosInstance } from 'axios';
+import Api from './api';
+import { IBuyer } from './buyer';
+
+export interface IPayload {
+  referenceId: string;
+  value: number;
+  callbackUrl: string;
+  buyer: IBuyer;
+  expiresAt?: string;
+  returnUrl?: string;
+}
+
+export interface IQRcode {
+  content: string;
+  base64: string;
+}
+
+export interface IPaymentResponse {
+  referenceId: string;
+  paymentUrl: string;
+  expiresAt: Date;
+  qrcode: IQRcode;
+}
+
+export interface ITypeErro {
+  field: string;
+  message: string;
+}
+
+export interface IErrorResponse {
+  message: string;
+  errors?: ITypeErro;
+}
+
+export interface ICancel {
+  referenceId: string;
+  authorizationId?: string;
+}
+
+export interface ICancelResponse {
+  referenceId: string;
+  cancellationId: string;
+}
+
+export enum EStatus {
+  'created',
+  'expired',
+  'analysis',
+  'paid',
+  'completed',
+  'refunded',
+  'chargeback',
+}
+
+export interface IStatusResponse {
+  authorizationId: string;
+  referenceId: string;
+  status: EStatus;
+}
 
 export default class Payment {
-  private instance: AxiosInstance;
+  public httpClient: any;
 
   public picpayToken: string;
 
   public sellerToken: string;
 
-  private baseUrl: string;
-
   constructor(picpayToken: string, sellerToken: string) {
      this.picpayToken = picpayToken;
      this.sellerToken = sellerToken;
 
-     this.baseUrl = 'https://appws.picpay.com/ecommerce/public';
-
-     this.instance = axios.create({
-        baseURL: this.getBaseUrl(),
-        headers: {
-           'accept-encoding': 'gzip,deflate',
-           'Content-Type': 'application/json',
-           'x-picpay-token': this.picpayToken,
-        },
-     });
+     this.httpClient = new Api(this.picpayToken, this.sellerToken);
   }
 
-  public getBaseUrl(): string {
-     return this.baseUrl;
+  /**
+   * Solicitar o pagamento de um pedido no PicPay
+   *
+   * @param {IPayload} payload
+   */
+  async send(payload: IPayload): Promise<IPaymentResponse | IErrorResponse> {
+     const uri = '/payments';
+     const response = await this.httpClient.post(uri, payload);
+
+     return response;
   }
 
-  public async post(uri: string, body: any): Promise<any> {
-     try {
-        const { status, data } = await this.instance.post(uri, body);
-        return { status, data };
-     } catch (err) {
-        if (err.response) {
-           const { status, data } = err.response;
-           return { status, data };
-        }
+  /**
+   * cancelamento/estorno de um pedido
+   */
+  async cancel(body: ICancel): Promise<ICancelResponse | IErrorResponse> {
+     const uri = `/payments/${body.referenceId}/cancellations`;
 
-        return err;
-     }
+     const response = await this.httpClient.post(uri, body);
+
+     return response;
   }
 
-  public async get(uri: string, params: any): Promise<any> {
-     try {
-        const { status, data } = await this.instance.get(uri, params);
-        return { status, data };
-     } catch (err) {
-        if (err.response) {
-           const { status, data } = err.response;
-           return { status, data };
-        }
+  /**
+   * consultar o status de uma transação.
+   *
+   * @param {string} referenceId Identificador da transação
+   */
+  async status(referenceId: string): Promise<IStatusResponse | IErrorResponse> {
+     const uri = `/payments/${referenceId}/status`;
+     const response = await this.httpClient.get(uri);
 
-        return err;
-     }
+     return response;
   }
 }
