@@ -1,17 +1,12 @@
 import express from 'express';
+import 'reflect-metadata';
+import { createConnection } from 'typeorm';
 import * as dotenv from 'dotenv';
 import Picpay from './lib/picpay';
 import Buyer from './lib/picpay/buyer';
+import Pagamento from './typeorm/entity/Pagamento';
 
 dotenv.config();
-
-const picpay = new Picpay({
-   picpayToken: process.env.PICPAY_TOKEN as string,
-   sellerToken: process.env.PICPAY_SELLER_TOKEN as string,
-});
-
-const server = express();
-server.use(express.json());
 
 interface MakePayment {
    referenceId: string;
@@ -31,31 +26,53 @@ interface PaymentStatus {
    referenceId: string;
 }
 
-server.post('/payment/make', async (request, response) => {
-   const {
-      referenceId,
-      value,
-      callbackUrl,
-      returnUrl,
-      expiresAt,
-      buyer,
-   } = request.body as MakePayment;
+createConnection().then(async (connection) => {
+   const pagamentoRepository = connection.getRepository(Pagamento);
 
-   const dadosRequest = {
-      referenceId,
-      value,
-      callbackUrl,
-      returnUrl,
-      expiresAt,
-      buyer,
-   };
+   const picpay = new Picpay({
+      picpayToken: process.env.PICPAY_TOKEN as string,
+      sellerToken: process.env.PICPAY_SELLER_TOKEN as string,
+   });
 
-   try {
-      const picpayResponse = await picpay.payment.make(dadosRequest);
-      response.status(picpayResponse.status).json(picpayResponse.data);
-   } catch (err) {
-      response.status(err.response.status).json(err.response.data);
-   }
+   const server = express();
+   server.use(express.json());
+
+   server.post('/payment/make', async (request, response) => {
+      const {
+         referenceId,
+         value,
+         callbackUrl,
+         returnUrl,
+         expiresAt,
+         buyer,
+      } = request.body as MakePayment;
+
+      const dadosRequest = {
+         referenceId,
+         value,
+         callbackUrl,
+         returnUrl,
+         expiresAt,
+         buyer,
+      };
+
+      try {
+         const picpayResponse = await picpay.payment.make(dadosRequest);
+         const { content: checkout_url, base64: qrcode } = picpayResponse.data.qrcode;
+         const pagamento = new Pagamento();
+         pagamento.reference_id = referenceId;
+         pagamento.value = value;
+         pagamento.checkout_url = checkout_url;
+         pagamento.qrcode = qrcode;
+         const pagamentoGerado = await pagamentoRepository.save(pagamento);
+
+         return response.status(201).json(
+            { message: 'Pagamento gerado. Aponte a camera do Smartphone', pagamento: pagamentoGerado },
+         );
+      } catch (err) {
+         return response.status(err.response?.status || 500)
+            .json(err.response?.data || { message: err.message });
+      }
 
    /* Response possibilities:
    {
@@ -67,19 +84,34 @@ server.post('/payment/make', async (request, response) => {
       },
       "expiresAt": "2020-11-28T15:58:25-02:00"
    }
-   */
-});
-
-server.post('/payment/:referenceId/cancel', async (request, response) => {
-   const { referenceId } = request.params as unknown as CancelPayment;
-   const { authorizationId } = request.body;
-
-   try {
-      const picpayResponse = await picpay.payment.cancel({ referenceId, authorizationId });
-      response.status(picpayResponse.status).json(picpayResponse.data);
-   } catch (err) {
-      response.status(err.response.status).json(err.response.data);
+   {
+      "message": "Já existe referenceId='14'"
    }
+   */
+   });
+
+   server.post('/payment/:referenceId/cancel', async (request, response) => {
+      const { referenceId } = request.params;
+      const { authorizationId } = request.body;
+
+      const dadosRequest = {
+         referenceId,
+         authorizationId,
+      };
+
+      try {
+         const pagamento = await pagamentoRepository.findOneOrFail({ reference_id: referenceId });
+         const picpayResponse = await picpay.payment.cancel(dadosRequest as CancelPayment);
+         pagamento.cancellation_id = picpayResponse.data.cancellationId;
+         const pagamentoCancelado = await pagamentoRepository.save(pagamento);
+
+         return response.json(
+            { message: 'Pagamento cancelado', pagamento: pagamentoCancelado },
+         );
+      } catch (err) {
+         return response.status(err.response?.status || 500)
+            .json(err.response?.data || { message: err.message });
+      }
 
    /* Response possibilities:
    {
@@ -90,17 +122,34 @@ server.post('/payment/:referenceId/cancel', async (request, response) => {
     "cancellationId": "5f0009018053df099990f669"
    }
    */
-});
+   });
 
-server.post('/payment/:referenceId/status', async (request, response) => {
-   const { referenceId } = request.params as unknown as PaymentStatus;
+   server.get('/payment/:referenceId/status', async (request, response) => {
+      const { referenceId } = request.params as unknown as PaymentStatus;
 
-   try {
-      const picpayResponse = await picpay.payment.status({ referenceId });
-      response.status(picpayResponse.status).json(picpayResponse.data);
-   } catch (err) {
-      response.status(err.response.status).json(err.response.data);
-   }
+      try {
+         const pagamento = await pagamentoRepository.findOneOrFail({ reference_id: referenceId });
+         const picpayResponse = await picpay.payment.status({ referenceId });
+
+         if (picpayResponse.data.status === 'expired') {
+            pagamento.expirado = true;
+         }
+
+         if (picpayResponse.data.status === 'paid') {
+            pagamento.authorization_id = picpayResponse.data.authorizationId;
+         }
+
+         if (picpayResponse.data.status === 'refunded') {
+            pagamento.authorization_id = picpayResponse.data.authorizationId;
+            pagamento.estornado = true;
+         }
+
+         const pagamentoCancelado = await pagamentoRepository.save(pagamento);
+         response.status(picpayResponse.status).json(pagamentoCancelado);
+      } catch (err) {
+         response.status(err.response?.status || 500)
+            .json(err.response?.data || { message: err.message });
+      }
 
    /* Response possibilites:
    {
@@ -123,10 +172,18 @@ server.post('/payment/:referenceId/status', async (request, response) => {
       "status": "paid",
       "authorizationId": "5f0005ae3999c22999901624"
    }
-   */
-});
 
-server.listen(3333, () => {
+   {
+    "referenceId": "9",
+    "status": "refunded",
+    "authorizationId": "5f0005ae3999c22999901624"
+   }
+   */
+   });
+
+   server.listen(3333, () => {
    // eslint-disable-next-line no-console
-   console.log('API escutando na porta 3333');
-});
+      console.log('API escutando na porta 3333');
+   });
+   // eslint-disable-next-line no-console
+}).catch((error) => console.log(error));
