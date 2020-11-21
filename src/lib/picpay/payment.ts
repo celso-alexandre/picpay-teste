@@ -24,10 +24,10 @@ interface PaymentStatus {
    referenceId: string;
 }
 
-interface PaymentNotification {
+/* interface PaymentNotification {
    referenceId: string;
    authorizationId: string;
-}
+} */
 
 class Payment {
    picpayToken: string;
@@ -69,7 +69,7 @@ class Payment {
      */
    async make({
       referenceId, value, callbackUrl, buyer, expiresAt, returnUrl,
-   }: MakePayment) {
+   }: MakePayment): Promise<any> {
       const uri = '/payments';
 
       const body = {
@@ -81,7 +81,7 @@ class Payment {
          returnUrl,
       };
 
-      const response = await this.api.post({uri, body});
+      const response = await this.api.post({ uri, body });
 
       return response;
    }
@@ -95,7 +95,7 @@ class Payment {
      * recebeu na notificação de pedido pago. Caso o pedido não esteja pago,
      * não é necessário enviar este parâmetro
      */
-   async cancel({ referenceId, authorizationId = '' }: CancelPayment) {
+   async cancel({ referenceId, authorizationId = '' }: CancelPayment): Promise<any> {
       const uri = `/payments/${referenceId}/cancellations`;
 
       const response = await this.api.post({
@@ -103,7 +103,7 @@ class Payment {
          body: {
             referenceId,
             authorizationId,
-         }
+         },
       });
 
       return response;
@@ -114,7 +114,7 @@ class Payment {
      *
      * @param {string} referenceId Identificador da transação
      */
-   async status({ referenceId }: PaymentStatus) {
+   async status({ referenceId }: PaymentStatus): Promise<any> {
       const uri = `/payments/${referenceId}/status`;
       const response = await this.api.get({ uri });
 
@@ -128,9 +128,9 @@ class Payment {
      * caso pago/em análise. Você deve usar esse valor para realizar
      * estornos em nossa API.
      */
-   notification({ referenceId, authorizationId }: PaymentNotification) {
+   /* notification({ referenceId, authorizationId }: PaymentNotification) {
 
-   }
+   } */
 }
 
 export default Payment;

@@ -5,7 +5,10 @@ import Buyer from './lib/picpay/buyer';
 
 dotenv.config();
 
-const picpay = new Picpay({picpayToken: process.env.PICPAY_TOKEN as string, sellerToken: process.env.PICPAY_SELLER_TOKEN as string});
+const picpay = new Picpay({
+   picpayToken: process.env.PICPAY_TOKEN as string,
+   sellerToken: process.env.PICPAY_SELLER_TOKEN as string,
+});
 
 const server = express();
 server.use(express.json());
@@ -35,26 +38,26 @@ server.post('/payment/make', async (request, response) => {
       callbackUrl,
       returnUrl,
       expiresAt,
-      buyer
+      buyer,
    } = request.body as MakePayment;
-   
+
    const dadosRequest = {
       referenceId,
       value,
       callbackUrl,
       returnUrl,
       expiresAt,
-      buyer
-   };   
+      buyer,
+   };
 
    try {
       const picpayResponse = await picpay.payment.make(dadosRequest);
-      response.status(picpayResponse.status).json(picpayResponse.data);      
+      response.status(picpayResponse.status).json(picpayResponse.data);
    } catch (err) {
-      response.status(err.response.status).json(err.response.data)
+      response.status(err.response.status).json(err.response.data);
    }
 
-   /*Response possibilities:
+   /* Response possibilities:
    {
       "referenceId": "9",
       "paymentUrl": "https://app.picpay.com/checkout/NWZiOXXXNDEzZjAAAAAyOThiNzY2OTA3",
@@ -75,7 +78,7 @@ server.post('/payment/:referenceId/cancel', async (request, response) => {
       const picpayResponse = await picpay.payment.cancel({ referenceId, authorizationId });
       response.status(picpayResponse.status).json(picpayResponse.data);
    } catch (err) {
-      response.status(err.response.status).json(err.response.data)
+      response.status(err.response.status).json(err.response.data);
    }
 
    /* Response possibilities:
@@ -96,7 +99,7 @@ server.post('/payment/:referenceId/status', async (request, response) => {
       const picpayResponse = await picpay.payment.status({ referenceId });
       response.status(picpayResponse.status).json(picpayResponse.data);
    } catch (err) {
-      response.status(err.response.status).json(err.response.data)
+      response.status(err.response.status).json(err.response.data);
    }
 
    /* Response possibilites:
@@ -124,5 +127,6 @@ server.post('/payment/:referenceId/status', async (request, response) => {
 });
 
 server.listen(3333, () => {
+   // eslint-disable-next-line no-console
    console.log('API escutando na porta 3333');
 });

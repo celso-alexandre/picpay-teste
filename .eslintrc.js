@@ -27,7 +27,8 @@ module.exports = {
       'class-methods-use-this': 'off',
       camelcase: 'off',
       indent: ['error', 3],
-      semi: 'always',
+      '@typescript-eslint/no-explicit-any': 'off',
+      'max-len': 'off',
    },
    settings: {
       'import/resolver': {

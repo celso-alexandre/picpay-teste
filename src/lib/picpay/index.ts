@@ -1,5 +1,10 @@
 import Payment from './payment';
 
+interface IPicpay {
+   picpayToken: string;
+   sellerToken: string;
+}
+
 class Picpay {
    private picpayToken: string;
 
@@ -7,7 +12,7 @@ class Picpay {
 
    public payment: Payment;
 
-   constructor({ picpayToken, sellerToken }) {
+   constructor({ picpayToken, sellerToken }: IPicpay) {
       this.picpayToken = picpayToken;
       this.sellerToken = sellerToken;
 
