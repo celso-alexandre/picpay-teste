@@ -27,6 +27,7 @@ module.exports = {
       'class-methods-use-this': 'off',
       camelcase: 'off',
       indent: ['error', 3],
+      semi: 'always',
    },
    settings: {
       'import/resolver': {
@@ -34,7 +35,7 @@ module.exports = {
             extensions: ['.js', '.jsx', '.ts', '.tsx'],
          },
          typescript: {
-            
+
          },
       },
    },
