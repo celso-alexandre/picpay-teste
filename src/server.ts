@@ -5,6 +5,7 @@ import * as dotenv from 'dotenv';
 import Picpay from './lib/picpay';
 import Buyer from './lib/picpay/buyer';
 import Pagamento from './typeorm/entity/Pagamento';
+import PagamentoLog from './typeorm/entity/PagamentoLog';
 
 dotenv.config();
 
@@ -28,6 +29,7 @@ interface PaymentStatus {
 
 createConnection().then(async (connection) => {
    const pagamentoRepository = connection.getRepository(Pagamento);
+   const pagamentoLogRepository = connection.getRepository(PagamentoLog);
 
    const picpay = new Picpay({
       picpayToken: process.env.PICPAY_TOKEN as string,
@@ -56,22 +58,38 @@ createConnection().then(async (connection) => {
          buyer,
       };
 
+      const pagamentoLog = new PagamentoLog();
+      pagamentoLog.metodo_http = 'POST';
+      pagamentoLog.api_uri = '/payment/make';
+      pagamentoLog.request = { body: request.body } as any;
+
       try {
          const picpayResponse = await picpay.payment.make(dadosRequest);
+         pagamentoLog.response = picpayResponse.data;
+         pagamentoLog.status_http = picpayResponse.status;
+
          const { content: checkout_url, base64: qrcode } = picpayResponse.data.qrcode;
+
          const pagamento = new Pagamento();
          pagamento.reference_id = referenceId;
          pagamento.value = value;
          pagamento.checkout_url = checkout_url;
          pagamento.qrcode = qrcode;
+
          const pagamentoGerado = await pagamentoRepository.save(pagamento);
+         pagamentoLog.id_pagamento = pagamentoGerado.id;
+         pagamentoLog.pagamentos_new = pagamentoGerado as any;
 
          return response.status(201).json(
             { message: 'Pagamento gerado. Aponte a camera do Smartphone', pagamento: pagamentoGerado },
          );
       } catch (err) {
+         pagamentoLog.response = err.response?.data;
+         pagamentoLog.status_http = (err.response?.status || 500);
          return response.status(err.response?.status || 500)
             .json(err.response?.data || { message: err.message });
+      } finally {
+         await pagamentoLogRepository.save(pagamentoLog);
       }
 
    /* Response possibilities:
@@ -99,18 +117,35 @@ createConnection().then(async (connection) => {
          authorizationId,
       };
 
+      const pagamentoLog = new PagamentoLog();
+      pagamentoLog.metodo_http = 'POST';
+      pagamentoLog.api_uri = '/payment/:referenceId/cancel';
+      pagamentoLog.request = { body: request.body, params: request.params } as any;
+
       try {
          const pagamento = await pagamentoRepository.findOneOrFail({ reference_id: referenceId });
+         pagamentoLog.id_pagamento = pagamento.id;
+         pagamentoLog.pagamentos_old = JSON.stringify(pagamento) as any;
+
          const picpayResponse = await picpay.payment.cancel(dadosRequest as CancelPayment);
+         pagamentoLog.response = picpayResponse.data;
+         pagamentoLog.status_http = picpayResponse.status;
          pagamento.cancellation_id = picpayResponse.data.cancellationId;
+
          const pagamentoCancelado = await pagamentoRepository.save(pagamento);
+         pagamentoLog.id_pagamento = pagamentoCancelado.id;
+         pagamentoLog.pagamentos_new = pagamentoCancelado as any;
 
          return response.json(
             { message: 'Pagamento cancelado', pagamento: pagamentoCancelado },
          );
       } catch (err) {
+         pagamentoLog.response = err.response?.data;
+         pagamentoLog.status_http = (err.response?.status || 500);
          return response.status(err.response?.status || 500)
             .json(err.response?.data || { message: err.message });
+      } finally {
+         await pagamentoLogRepository.save(pagamentoLog);
       }
 
    /* Response possibilities:
@@ -127,9 +162,19 @@ createConnection().then(async (connection) => {
    server.get('/payment/:referenceId/status', async (request, response) => {
       const { referenceId } = request.params as unknown as PaymentStatus;
 
+      const pagamentoLog = new PagamentoLog();
+      pagamentoLog.metodo_http = 'GET';
+      pagamentoLog.api_uri = '/payment/:referenceId/status';
+      pagamentoLog.request = { params: request.params } as any;
+
       try {
          const pagamento = await pagamentoRepository.findOneOrFail({ reference_id: referenceId });
+         pagamentoLog.pagamentos_old = JSON.stringify(pagamento) as any;
+         pagamentoLog.id_pagamento = pagamento.id;
+
          const picpayResponse = await picpay.payment.status({ referenceId });
+         pagamentoLog.response = picpayResponse.data;
+         pagamentoLog.status_http = picpayResponse.status;
 
          if (picpayResponse.data.status === 'expired') {
             pagamento.expirado = true;
@@ -144,11 +189,18 @@ createConnection().then(async (connection) => {
             pagamento.estornado = true;
          }
 
-         const pagamentoCancelado = await pagamentoRepository.save(pagamento);
-         response.status(picpayResponse.status).json(pagamentoCancelado);
+         const pagamentoStatus = await pagamentoRepository.save(pagamento);
+         pagamentoLog.id_pagamento = pagamentoStatus.id;
+         pagamentoLog.pagamentos_new = pagamentoStatus as any;
+
+         return response.status(picpayResponse.status).json(pagamentoStatus);
       } catch (err) {
-         response.status(err.response?.status || 500)
+         pagamentoLog.response = err.response?.data;
+         pagamentoLog.status_http = (err.response?.status || 500);
+         return response.status(err.response?.status || 500)
             .json(err.response?.data || { message: err.message });
+      } finally {
+         await pagamentoLogRepository.save(pagamentoLog);
       }
 
    /* Response possibilites:
