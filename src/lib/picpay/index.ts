@@ -1,4 +1,4 @@
-import Payment from './payment';
+import Payment from './Payment';
 
 interface IPicpay {
    picpayToken: string;

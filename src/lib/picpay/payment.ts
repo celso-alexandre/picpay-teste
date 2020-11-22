@@ -1,5 +1,5 @@
-import Buyer from './buyer';
-import Api from './api';
+import Buyer from './Buyer';
+import Api from './Api';
 
 interface IPayment {
    picpayToken: string;

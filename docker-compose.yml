@@ -1,0 +1,11 @@
+version: '3.1'
+
+services:
+  picpay_postgres:
+    image: postgres
+    ports:
+      - '5432:5432'
+    restart: 'always'
+    environment:
+      POSTGRES_PASSWORD: docker1234
+

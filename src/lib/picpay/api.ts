@@ -8,7 +8,7 @@ interface IApi {
 
 interface ApiPost {
    uri: string;
-   body: Record<string, unknown>; // recomendacao do eslint no lugar de "object"
+   body: Record<string, unknown>;
 }
 
 interface ApiGet {
