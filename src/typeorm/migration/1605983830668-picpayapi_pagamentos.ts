@@ -16,7 +16,7 @@ export default class picpayapiPagamentos1605983830668 implements MigrationInterf
             expirado boolean DEFAULT false,
             dh_insert timestamp without time zone DEFAULT NOW(),
             dh_altera timestamp without time zone DEFAULT NOW(),
-            CONSTRAINT PK_pagamentos PRIMARY KEY (reference_id)
+            PRIMARY KEY (id)
          )
          
          TABLESPACE pg_default;
@@ -27,6 +27,6 @@ export default class picpayapiPagamentos1605983830668 implements MigrationInterf
    }
 
    public async down(queryRunner: QueryRunner): Promise<void> {
-      await queryRunner.query('DROP TABLE public.pagamentos;');
+      await queryRunner.dropTable('public.pagamentos');
    }
 }
