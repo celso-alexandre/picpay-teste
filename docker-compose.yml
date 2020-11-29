@@ -1,11 +1,22 @@
 version: '3.1'
 
 services:
-  picpay_postgres:
-    image: postgres
-    ports:
-      - '5432:5432'
-    restart: 'always'
-    environment:
-      POSTGRES_PASSWORD: docker1234
+   picpay_postgres:
+      image: postgres
+      ports:
+         - '5432:5432'
+      restart: 'always'
+      environment:
+         POSTGRES_PASSWORD: docker1234
+
+   # picpay_dyndns_client:
+   #    build:
+   #       context: ./docker
+   #       dockerfile: dyndns.Dockerfile
+   #    container_name: dyndnsclient
+   #    volumes:
+   #       - /etc/localtime:/etc/localtime:ro
+   #       - ./docker/volume/dyndns_config/:/config
+   #    env_file: ./docker/dyndns.env         
+   #    restart: always
 

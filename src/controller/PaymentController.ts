@@ -49,7 +49,7 @@ export default class PaymentController {
       const {
          referenceId,
          value,
-         callbackUrl,
+         // callbackUrl,
          returnUrl,
          expiresAt,
          buyer,
@@ -58,7 +58,7 @@ export default class PaymentController {
       const dadosRequest = {
          referenceId,
          value,
-         callbackUrl,
+         callbackUrl: process.env.PICPAY_CALLBACK_URL,
          returnUrl,
          expiresAt,
          buyer,
@@ -199,6 +199,10 @@ export default class PaymentController {
          pagamentoLog.id_pagamento = pagamentoStatus.id;
          pagamentoLog.pagamentos_new = pagamentoStatus as any;
 
+         if (request.headers.blankResponse === '1') {
+            return response.status(200).json();
+         }
+
          return response.status(picpayResponse.status).json(pagamentoStatus);
       } catch (err) {
          pagamentoLog.response = err.response?.data;
@@ -245,6 +249,7 @@ export default class PaymentController {
          referenceId,
       };
       delete request.body.referenceId;
+      request.headers.blankResponse = '1';
       return this.status(request, response);
    }
 }

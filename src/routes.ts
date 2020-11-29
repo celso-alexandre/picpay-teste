@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import PaymentController from './controller/PaymentController';
+import ensureAuthenticated from './middleware/ensureAuthenticated';
 
 class Routes {
    routes: Router;
@@ -9,6 +10,12 @@ class Routes {
    constructor() {
       this.routes = Router();
       this.paymentController = new PaymentController();
+
+      this.routes.post('/payment/notification', async (request, response) => {
+         this.paymentController.notification(request, response);
+      });
+
+      this.routes.use(ensureAuthenticated);
 
       this.routes.post('/payment/make', (request, response) => {
          this.paymentController.make(request, response);
@@ -20,10 +27,6 @@ class Routes {
 
       this.routes.get('/payment/:referenceId/status', (request, response) => {
          this.paymentController.status(request, response);
-      });
-
-      this.routes.post('/payment/notification', async (request, response) => {
-         this.paymentController.notification(request, response);
       });
    }
 }
